@@ -253,6 +253,25 @@ def get_unemailed_high_matches(conn: sqlite3.Connection) -> List[Match]:
     return [_row_to_match(r) for r in rows]
 
 
+def dismiss_match(conn: sqlite3.Connection, lost_id: str, found_id: str) -> bool:
+    """Permanently hide a match as a reviewed false positive. Survives re-runs:
+    upsert_match never touches `dismissed` on conflict, so a future re-match of
+    the same pair stays hidden."""
+    cur = conn.execute(
+        "UPDATE matches SET dismissed=1 WHERE lost_id=? AND found_id=?",
+        (lost_id, found_id),
+    )
+    return cur.rowcount > 0
+
+
+def undismiss_match(conn: sqlite3.Connection, lost_id: str, found_id: str) -> bool:
+    cur = conn.execute(
+        "UPDATE matches SET dismissed=0 WHERE lost_id=? AND found_id=?",
+        (lost_id, found_id),
+    )
+    return cur.rowcount > 0
+
+
 def mark_emailed(conn: sqlite3.Connection, matches: List[Match]) -> None:
     now = datetime.utcnow().isoformat()
     conn.executemany(

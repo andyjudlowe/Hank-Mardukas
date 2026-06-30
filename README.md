@@ -41,6 +41,29 @@ aggregation + standing automated matching**.
    Attribute-only matches (no photo) are capped and require a distinguishing
    attribute overlap, so the dashboard never floods with species-only pairs.
 
+### Rejecting obvious misses
+
+Each dashboard card has a **✕ Not a match** button. It's per-browser only (the
+dashboard is a static, no-backend site) — it hides the card from your own view
+via `localStorage`, with a "N rejected — show" toggle to bring them back.
+
+To permanently remove a false positive for everyone (so it doesn't reappear
+after the next scrape/rebuild), run the review CLI locally:
+
+```bash
+python -m petmatch.review              # walks through the "possible" tier
+python -m petmatch.review --tier all   # review everything, including "high"
+```
+
+For each match: `k` keep, `r` reject, `q` quit. Rejections are written to
+`data/petmatch.db` (`dismissed=1`) and survive future re-matching — re-run the
+dashboard build and commit the DB to publish:
+
+```bash
+python -m petmatch.dashboard
+git add data/petmatch.db && git commit -m "Review: dismiss false positives" && git push
+```
+
 ## Quick start
 
 ```bash

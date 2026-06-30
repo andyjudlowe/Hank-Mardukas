@@ -5,7 +5,7 @@ from petmatch.config import CONFIG
 from petmatch.match.filter import stage1
 from petmatch.match.pipeline import _confidence, _tier, run_matching
 from petmatch.models import MatchTier, Sex, Source, Species, Status
-from petmatch.storage import connect, get_matches, upsert_pet
+from petmatch.storage import connect, dismiss_match, get_matches, upsert_pet
 
 
 def make_pet(sid, status, **kw):
@@ -66,6 +66,34 @@ def test_species_only_is_floor_and_uncorroborated():
     assert res.score == 0.30  # species contributes exactly the floor
 
 
+# ---- "obvious miss": only a common base color + generic "mix" breed text in
+#      common -- this is the false-positive pattern that used to corroborate
+#      (and surface on the dashboard) even though the pets are unrelated. ----
+def test_common_color_alone_does_not_corroborate():
+    lost = pet("L6", Status.lost, species=Species.dog, colors=["black"],
+               breed="Mix", borough="Manhattan", date_reported=date(2026, 6, 1),
+               description="lost dog last seen near the park, very friendly")
+    found = pet("F6", Status.found, species=Species.dog, colors=["black"],
+                breed="Domestic Mix", borough="Manhattan",
+                date_reported=date(2026, 6, 5),
+                description="found dog near the park, seems friendly")
+    res = stage1(lost, found, CONFIG)
+    assert res.passed
+    assert res.corroborated is False
+
+
+# ---- a distinctive coat pattern shared between two pets IS real evidence,
+#      even on its own. ----
+def test_distinctive_color_does_corroborate():
+    lost = pet("L7", Status.lost, species=Species.cat, colors=["calico"],
+               borough="Queens")
+    found = pet("F7", Status.found, species=Species.cat, colors=["calico"],
+                borough="Queens")
+    res = stage1(lost, found, CONFIG)
+    assert res.passed
+    assert res.corroborated is True
+
+
 def test_confidence_caps_without_photo():
     # strong attributes, but no photo -> capped
     assert _confidence(0.95, None, CONFIG) == CONFIG.no_photo_confidence_cap
@@ -94,4 +122,32 @@ def test_pipeline_creates_possible_match(tmp_path):
     matches = get_matches(conn, MatchTier.possible)
     assert stats.possible >= 1
     assert len(matches) >= 1
+    conn.close()
+
+
+# ---- dismissing a match (the dashboard "Not a match" -> review CLI path)
+#      must hide it, and must stay hidden across a re-run of the matcher. ----
+def test_dismissed_match_stays_hidden_across_rematch(tmp_path):
+    conn = connect(tmp_path / "t2.db")
+    lost10 = pet("L10", Status.lost, species=Species.cat,
+                colors=["calico"], borough="Queens",
+                date_reported=date(2026, 6, 10))
+    found10 = pet("F10", Status.found, species=Species.cat,
+                 colors=["calico"], borough="Queens",
+                 date_reported=date(2026, 6, 11))
+    upsert_pet(conn, lost10)
+    upsert_pet(conn, found10)
+    conn.commit()
+
+    run_matching(conn, do_photo=False, verbose=False)
+    assert len(get_matches(conn, MatchTier.possible)) == 1
+
+    dismiss_match(conn, lost10.id, found10.id)
+    conn.commit()
+    assert get_matches(conn, MatchTier.possible) == []
+    assert len(get_matches(conn, MatchTier.possible, include_dismissed=True)) == 1
+
+    # Re-running the matcher (e.g. tomorrow's cron) must not un-dismiss it.
+    run_matching(conn, do_photo=False, verbose=False)
+    assert get_matches(conn, MatchTier.possible) == []
     conn.close()

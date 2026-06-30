@@ -32,6 +32,7 @@ def _pet_view(pet: Optional[PetRecord]) -> dict:
 
 def build_match_view(m: Match, pets: Dict[str, PetRecord]) -> dict:
     return {
+        "id": f"{m.lost_id}:{m.found_id}",
         "lost": _pet_view(pets.get(m.lost_id)),
         "found": _pet_view(pets.get(m.found_id)),
         "confidence": round(m.confidence * 100),

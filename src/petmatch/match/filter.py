@@ -14,6 +14,34 @@ from ..config import Config
 from ..geo import boroughs_adjacent, haversine_miles
 from ..models import PetRecord, Sex, Species
 
+# Base colors are common enough among NYC pets (a large share of cats and dogs
+# are "black" or "brown") that sharing just one isn't real evidence on its
+# own. Pattern/coat colors are far more identifying.
+_DISTINCTIVE_COLORS = {"brindle", "calico", "tabby", "tortoiseshell", "spotted", "merle"}
+
+# Breed-text filler that shows up on almost every cat/dog listing and isn't a
+# real breed signal -- "Domestic Shorthair Mix" overlapping "Domestic
+# Shorthair" says nothing about whether it's the same animal.
+_GENERIC_BREED_WORDS = {
+    "mix", "mixed", "domestic", "shorthair", "longhair", "short", "long",
+    "hair", "haired", "unknown", "various", "breed", "kitten", "puppy",
+}
+
+# Boilerplate lost/found posting language. SequenceMatcher's character-level
+# ratio gets inflated by shared phrases like "near the park, very friendly"
+# even between totally unrelated pets, so corroboration from free text
+# instead requires shared *content* words once this filler is stripped out.
+_TEXT_STOPWORDS = {
+    "lost", "found", "dog", "cat", "puppy", "kitten", "pet", "near", "park",
+    "street", "avenue", "seen", "last", "very", "friendly", "please",
+    "contact", "call", "email", "reward", "missing", "seems", "seem",
+    "looks", "look", "like", "good", "sweet", "scared", "afraid", "nice",
+    "loving", "home", "area", "around", "today", "yesterday", "morning",
+    "evening", "afternoon", "night", "help", "anyone", "know",
+    "information", "info", "thanks", "thank", "the", "and", "with", "this",
+    "that", "was", "has", "have", "had", "for", "from", "named", "name",
+}
+
 
 @dataclass
 class AttrResult:
@@ -83,21 +111,27 @@ def stage1(lost: PetRecord, found: PetRecord, cfg: Config) -> AttrResult:
         score += 0.30
         reasons.append(f"same species ({lost.species.value})")
 
-    # colors (strong identity signal)
+    # colors (strong identity signal -- but only when distinctive; a single
+    # shared base color like "black" or "brown" is too common to count as
+    # corroboration on its own)
     cl, cf = set(lost.colors), set(found.colors)
     if cl and cf:
         score += 0.30 * _jaccard(cl, cf)
-        if cl & cf:
-            reasons.append("colors: " + ", ".join(sorted(cl & cf)))
-            corroborated = True
+        overlap = cl & cf
+        if overlap:
+            reasons.append("colors: " + ", ".join(sorted(overlap)))
+            if (overlap & _DISTINCTIVE_COLORS) or len(overlap) >= 2:
+                corroborated = True
 
-    # breed
-    bl, bf = _tokens(lost.breed), _tokens(found.breed)
+    # breed (generic filler like "domestic shorthair" / "mix" is stripped
+    # first so it can't fake a real breed match)
+    bl = _tokens(lost.breed) - _GENERIC_BREED_WORDS
+    bf = _tokens(found.breed) - _GENERIC_BREED_WORDS
     if bl and bf:
         j = _jaccard(bl, bf)
         score += 0.20 * j
         if j > 0:
-            reasons.append("breed overlap")
+            reasons.append("breed overlap: " + ", ".join(sorted(bl & bf)))
             corroborated = True
 
     # size
@@ -128,13 +162,19 @@ def stage1(lost: PetRecord, found: PetRecord, cfg: Config) -> AttrResult:
         score += 0.08 * max(0.0, 1.0 - abs(days_apart) / cfg.date_window_days)
         reasons.append(f"{abs(days_apart)} days apart")
 
-    # free-text similarity (names + descriptions)
+    # free-text similarity (names + descriptions). Character-level ratio still
+    # feeds the score (smooth signal for ranking), but corroboration requires
+    # actual shared content words -- not shared boilerplate phrasing.
     lt = " ".join(filter(None, [lost.name, lost.description]))
     ft = " ".join(filter(None, [found.name, found.description]))
     if lt and ft:
         ratio = SequenceMatcher(None, lt.lower()[:500], ft.lower()[:500]).ratio()
         score += 0.15 * ratio
-        if ratio >= 0.35:
+        lt_words = _tokens(lt) - _TEXT_STOPWORDS
+        ft_words = _tokens(ft) - _TEXT_STOPWORDS
+        shared_words = lt_words & ft_words
+        if len(shared_words) >= 2:
+            reasons.append("shared description terms: " + ", ".join(sorted(shared_words)))
             corroborated = True
 
     return AttrResult(passed=True, score=round(min(score, 1.0), 4),

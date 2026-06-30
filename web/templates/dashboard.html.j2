@@ -19,7 +19,8 @@
     Automated, link-back-only candidate matches between <strong>lost</strong> and
     <strong>found</strong> pets from public Petco Love Lost and Craigslist listings.
     These are <em>possible</em> matches for a human to review — not confirmed.
-    Click through to the original post to follow up. Updated {{ generated_at }}.
+    Click through to the original post to follow up. Use <strong>✕ Not a match</strong>
+    to hide an obvious miss from your own view. Updated {{ generated_at }}.
   </p>
 
   <div class="filters">
@@ -35,12 +36,13 @@
     <select id="sort">
       <option value="conf">Sort: confidence</option>
       <option value="photo">Sort: photo score</option></select>
+    <button type="button" id="hidden-toggle" class="hidden-toggle" hidden></button>
     <span id="visible-count" class="count"></span>
   </div>
 
   <div id="cards">
   {% for m in matches %}
-    <article class="card" data-species="{{ m.lost.species }}"
+    <article class="card" data-id="{{ m.id }}" data-species="{{ m.lost.species }}"
       data-borough="{{ m.found.borough }}" data-lostborough="{{ m.lost.borough }}"
       data-tier="{{ m.tier }}" data-conf="{{ m.confidence }}"
       data-photo="{{ m.photo_score if m.photo_score is not none else -1 }}"
@@ -49,13 +51,14 @@
         <span class="badge {{ m.tier }}">{{ m.tier }}</span>
         <span class="conf">{{ m.confidence }}%</span>
         <span class="sub">attrs {{ m.attr_score }}%{% if m.photo_score is not none %} · photo {{ m.photo_score }}%{% endif %}</span>
+        <button type="button" class="reject-btn" title="Hide this from my view">✕ Not a match</button>
       </div>
       <div class="pair">
         {% for side, label in [('lost','LOST'), ('found','FOUND')] %}
         {% set p = m[side] %}
         <div class="pet {{ side }}">
           <div class="tag {{ side }}">{{ label }}</div>
-          {% if p.photo %}<img loading="lazy" src="{{ p.photo }}" alt="{{ label }} pet">
+          {% if p.photo %}<div class="imgwrap"><img loading="lazy" src="{{ p.photo }}" alt="{{ label }} pet"></div>
           {% else %}<div class="noimg">no photo</div>{% endif %}
           <div class="meta">
             <strong>{{ p.name }}</strong>
