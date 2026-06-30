@@ -80,15 +80,28 @@ pytest -q
 
 1. Push this repo to GitHub.
 2. **Settings → Pages → Source: GitHub Actions.**
-3. Add repo **secrets**: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `REPORT_EMAIL`,
-   `REPORT_FROM` (a verified Resend sender; or use SMTP, see `.env.example`).
-4. Add repo **variables**: `PETMATCH_DASHBOARD_URL` (your Pages URL),
-   optionally `PETMATCH_VISION_MODEL` (`claude-opus-4-8` default, or
-   `claude-haiku-4-5` to cut cost).
+3. Add repo **secrets**: `RESEND_API_KEY`, `REPORT_EMAIL`, `REPORT_FROM` (a
+   verified Resend sender; or use SMTP, see `.env.example`). `ANTHROPIC_API_KEY`
+   is only needed if you enable vision matching (see below) — daily runs are
+   **free** by default and skip it entirely.
+4. Add repo **variables**: `PETMATCH_DASHBOARD_URL` (your Pages URL).
 5. `.github/workflows/run.yml` runs **daily** (scrape + match + dashboard) and
    emails on **Mondays**. The SQLite DB (`data/petmatch.db`) is committed back
    each run so "already emailed" state persists. Trigger manually from the
    **Actions** tab (with *force_email* to test the email path).
+
+### Cost: free by default, vision is opt-in
+
+Every scheduled run is **attribute-only matching — $0, no Anthropic API calls**.
+Claude vision (photo confirmation) only runs when you explicitly opt in:
+
+- **One-off paid run:** Actions tab → *Run workflow* → check **use_vision**.
+- **Always-on vision:** add repo secret `ANTHROPIC_API_KEY`, then set repo
+  **variable** `PETMATCH_USE_VISION=true`. Optionally also set
+  `PETMATCH_VISION_MODEL=claude-haiku-4-5` (default `claude-opus-4-8`) to cut
+  per-comparison cost ~5x. Rough cost: ~$0.01–0.02/comparison on Opus,
+  ~$0.002–0.004/comparison on Haiku — typically a few dollars a month at most,
+  capped by `PETMATCH_MAX_VISION_CALLS` (default 200/run).
 
 ## Notes on scraping & privacy
 

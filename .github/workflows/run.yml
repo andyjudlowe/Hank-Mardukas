@@ -11,6 +11,10 @@ on:
         description: "Send the digest email on this run regardless of weekday"
         type: boolean
         default: false
+      use_vision:
+        description: "Use Claude vision for photo confirmation on this run (costs API tokens; default runs free, attribute-only)"
+        type: boolean
+        default: false
 
 # Allow committing the SQLite state back and deploying Pages.
 permissions:
@@ -50,6 +54,18 @@ jobs:
             echo "send=" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: "Decide vision usage (default: free, attribute-only)"
+        id: vision
+        run: |
+          # Vision (Claude API, costs tokens) only runs if explicitly opted in:
+          # either permanently via the repo variable PETMATCH_USE_VISION=true,
+          # or for a single manual run via the workflow_dispatch checkbox.
+          if [ "${{ vars.PETMATCH_USE_VISION }}" = "true" ] || [ "${{ github.event.inputs.use_vision }}" = "true" ]; then
+            echo "no_photo=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "no_photo=1" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run pipeline
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -58,6 +74,7 @@ jobs:
           REPORT_FROM: ${{ secrets.REPORT_FROM }}
           PETMATCH_DASHBOARD_URL: ${{ vars.PETMATCH_DASHBOARD_URL }}
           PETMATCH_VISION_MODEL: ${{ vars.PETMATCH_VISION_MODEL }}
+          PETMATCH_NO_PHOTO: ${{ steps.vision.outputs.no_photo }}
         run: |
           python -m petmatch.main ${{ steps.gate.outputs.send }}
 
