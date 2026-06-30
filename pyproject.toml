@@ -1,0 +1,27 @@
+[project]
+name = "nyc-pet-matcher"
+version = "0.1.0"
+description = "Match lost NYC pets with found pets across Petco Love Lost and Craigslist; weekly email + daily public dashboard."
+requires-python = ">=3.9"
+dependencies = [
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "pydantic>=2.6",
+    "jinja2>=3.1",
+    "python-dateutil>=2.9",
+    "anthropic>=0.40",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

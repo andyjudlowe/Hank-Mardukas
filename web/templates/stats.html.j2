@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NYC Pet Matcher — Stats &amp; Trends</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <h1>🐾 NYC Pet Matcher</h1>
+    <nav><a href="index.html">Possible matches</a><a class="active" href="stats.html">Stats &amp; trends</a></nav>
+  </div>
+</header>
+
+{% macro barlist(items) %}
+  {% set maxv = (items|map(attribute='value')|max) if items else 1 %}
+  <ul class="barlist">
+    {% for it in items %}
+    <li><span class="barlabel">{{ it.label }}</span>
+      <span class="bartrack"><span class="bar" style="width:{{ (it.value / (maxv or 1) * 100)|round(0,'floor') }}%"></span></span>
+      <span class="barval">{{ it.value }}</span></li>
+    {% endfor %}
+  </ul>
+{% endmacro %}
+
+<main class="wrap">
+  <p class="intro">Snapshot of the current lost/found pools and recent runs. Updated {{ generated_at }}.</p>
+
+  <section class="totals">
+    <div class="stat"><div class="n">{{ stats.totals.lost }}</div><div class="l">lost pets</div></div>
+    <div class="stat"><div class="n">{{ stats.totals.found }}</div><div class="l">found pets</div></div>
+    <div class="stat"><div class="n">{{ stats.totals.high }}</div><div class="l">high matches</div></div>
+    <div class="stat"><div class="n">{{ stats.totals.possible }}</div><div class="l">possible matches</div></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel"><h2>Lost by borough</h2>{{ barlist(stats.lost_by_borough) }}</section>
+    <section class="panel"><h2>Found by borough</h2>{{ barlist(stats.found_by_borough) }}</section>
+    <section class="panel"><h2>Lost by species</h2>{{ barlist(stats.lost_by_species) }}</section>
+    <section class="panel"><h2>Found by species</h2>{{ barlist(stats.found_by_species) }}</section>
+  </div>
+
+  <section class="panel">
+    <h2>Recent runs</h2>
+    {% if stats.trend %}
+    {% set maxp = (stats.trend|map(attribute='pets')|max) or 1 %}
+    <div class="trend">
+      {% for t in stats.trend %}
+      <div class="tcol" title="{{ t.date }}: {{ t.pets }} pets, {{ t.high }} high, {{ t.possible }} possible">
+        <div class="tbar" style="height:{{ (t.pets / maxp * 90 + 4)|round(0,'floor') }}px"></div>
+        <div class="tdate">{{ t.date[5:] }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="muted">Bar height = pets scraped per run. Hover for match counts.</p>
+    {% else %}
+    <p class="muted">No runs recorded yet.</p>
+    {% endif %}
+  </section>
+</main>
+
+<footer class="foot wrap">Sources: Petco Love Lost, Craigslist. Automated, non-commercial.</footer>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NYC Pet Matcher — Possible Matches</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <h1>🐾 NYC Pet Matcher</h1>
+    <nav><a class="active" href="index.html">Possible matches</a><a href="stats.html">Stats &amp; trends</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="intro">
+    Automated, link-back-only candidate matches between <strong>lost</strong> and
+    <strong>found</strong> pets from public Petco Love Lost and Craigslist listings.
+    These are <em>possible</em> matches for a human to review — not confirmed.
+    Click through to the original post to follow up. Updated {{ generated_at }}.
+  </p>
+
+  <div class="filters">
+    <input type="search" id="q" placeholder="Search name, breed, area…">
+    <select id="species"><option value="">All species</option>
+      <option>dog</option><option>cat</option><option>bird</option><option>other</option></select>
+    <select id="borough"><option value="">All boroughs</option>
+      <option>Manhattan</option><option>Brooklyn</option><option>Queens</option>
+      <option>Bronx</option><option>Staten Island</option><option>Unknown area</option></select>
+    <select id="tier"><option value="">All tiers</option>
+      <option value="high">High confidence</option>
+      <option value="possible">Possible</option></select>
+    <select id="sort">
+      <option value="conf">Sort: confidence</option>
+      <option value="photo">Sort: photo score</option></select>
+    <span id="visible-count" class="count"></span>
+  </div>
+
+  <div id="cards">
+  {% for m in matches %}
+    <article class="card" data-species="{{ m.lost.species }}"
+      data-borough="{{ m.found.borough }}" data-lostborough="{{ m.lost.borough }}"
+      data-tier="{{ m.tier }}" data-conf="{{ m.confidence }}"
+      data-photo="{{ m.photo_score if m.photo_score is not none else -1 }}"
+      data-text="{{ (m.lost.name ~ ' ' ~ (m.lost.breed or '') ~ ' ' ~ m.found.name ~ ' ' ~ (m.found.breed or '') ~ ' ' ~ m.lost.borough ~ ' ' ~ m.found.borough)|lower }}">
+      <div class="card-head">
+        <span class="badge {{ m.tier }}">{{ m.tier }}</span>
+        <span class="conf">{{ m.confidence }}%</span>
+        <span class="sub">attrs {{ m.attr_score }}%{% if m.photo_score is not none %} · photo {{ m.photo_score }}%{% endif %}</span>
+      </div>
+      <div class="pair">
+        {% for side, label in [('lost','LOST'), ('found','FOUND')] %}
+        {% set p = m[side] %}
+        <div class="pet {{ side }}">
+          <div class="tag {{ side }}">{{ label }}</div>
+          {% if p.photo %}<img loading="lazy" src="{{ p.photo }}" alt="{{ label }} pet">
+          {% else %}<div class="noimg">no photo</div>{% endif %}
+          <div class="meta">
+            <strong>{{ p.name }}</strong>
+            <span>{{ p.species }}{% if p.breed %} · {{ p.breed }}{% endif %}</span>
+            {% if p.colors %}<span>{{ p.colors|join(', ') }}</span>{% endif %}
+            <span>{{ p.borough }}{% if p.date %} · {{ p.date }}{% endif %}</span>
+            {% if p.detail_url %}<a href="{{ p.detail_url }}" target="_blank" rel="noopener">View {{ p.source }} post →</a>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="why">{{ m.reasons|join(' · ') }}</div>
+    </article>
+  {% endfor %}
+  </div>
+  <p id="empty" class="empty" hidden>No matches fit these filters.</p>
+  {% if not matches %}<p class="empty">No possible matches yet. Run the matcher to populate this page.</p>{% endif %}
+</main>
+
+<footer class="foot wrap">
+  Candidate matches only — verify via the original listing. Contact details are not
+  republished here. Sources: Petco Love Lost, Craigslist.
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

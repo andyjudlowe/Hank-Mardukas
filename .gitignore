@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.cache/
+web/site/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+# NOTE: data/petmatch.db is intentionally committed (durable run state).
