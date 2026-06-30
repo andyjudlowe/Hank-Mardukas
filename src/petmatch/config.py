@@ -102,7 +102,7 @@ class Config:
 
     # Dashboard
     dashboard_url: str = os.environ.get(
-        "PETMATCH_DASHBOARD_URL", "https://andyjudlowe.github.io/nyc-pet-matcher/"
+        "PETMATCH_DASHBOARD_URL", "https://andyjudlowe.github.io/Hank-Mardukas/"
     )
 
 
